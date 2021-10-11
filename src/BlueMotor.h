@@ -1,11 +1,8 @@
+#include <functional>
+
 class BlueMotor
 {
 private:
-  const int PWM = 5;
-  const int AIN2 = 23;
-  const int AIN1 = 27;
-  const int ENCA = 19;
-  const int ENCB = 18;
   const float encRatio = 0.75;
 
 public:
@@ -13,8 +10,17 @@ public:
   ~BlueMotor();
 
   void setEffort(int effort);
+  void setTarget(long count);
+  void startPid();
+
 
   float getPosition();
   long getCount();
+  long getErr();
   void reset();
+
+  float Kp = 0;
+  float Ki = 0;
+  float Kd = 0;
+  std::function<float (long)> Ff = [] (long count) { return 0.0; };
 };
