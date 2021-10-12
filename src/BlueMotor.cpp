@@ -2,7 +2,7 @@
 #include <RBE1001Lib.h>
 
 #define PIDINT 100 //TODO: reduce pid interval
-#define PWM 13
+#define PWM 13 // motor driver pins
 #define AIN2 14
 #define AIN1 15
 #define ENCA 18
@@ -25,31 +25,28 @@ void IRAM_ATTR encoderIsr() {
   }
 }
 
-void pidThread(void* params) {
-  BlueMotor* motor = (BlueMotor*) params;
-  TickType_t xLastWakeTime = xTaskGetTickCount();
-  long lastErr, count = motor->getCount();
+void pidfTask(void* params) {
+  BlueMotor* motor = (BlueMotor*) params; // we passed a pointer to `this` into the task so that we can get count and apply effort
+  TickType_t xLastWakeTime = xTaskGetTickCount(); // initialize wake time variable
+  long lastErr, count = motor->getCount(); // more initialization
   float effort = 0;
   float P, I, D, F;
-  for(;;) {
+  for(;;) { // loop forever - delay happens later
     lastErr = err;
     count = motor->getCount();
     err = pidTarget - count;
     P = motor->Kp * err;
-    I = 0;
+    I = 0; // I term is 0 because it seems unnecessary so far
     D = (motor->Kd * (err - lastErr))/PIDINT;
-    F = motor->Ff(count);
-    effort = constrain(P + I - D + F, -255, 255);
-    /*Serial.print(err);
-    Serial.print("\t");
-    Serial.println((long)effort);*/
-    motor->setEffort((int)effort);
-    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(PIDINT));
+    F = motor->Ff(count); //feedforward!! we probably won't use this
+    effort = constrain(P + I - D + F, -255, 255); // constrain the pidf result to [-255, 255]
+    motor->setEffort((int)effort); // send constrained pidf result to the motor
+    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(PIDINT)); // delay for PIDINT
   }
 }
 
 BlueMotor::BlueMotor() {
-  pinMode(ENCA, INPUT);
+  pinMode(ENCA, INPUT); // initialize motor driver pins
   pinMode(ENCB, INPUT);
   pinMode(AIN1, OUTPUT);
   pinMode(AIN2, OUTPUT);
@@ -63,8 +60,8 @@ BlueMotor::~BlueMotor() {
 }
 
 void BlueMotor::startPid() {
-  pidTarget = getCount();
-  xTaskCreate(pidThread, "BlueMotor PID Thread", 1000, (void*) this, 1, NULL);
+  pidTarget = getCount(); // set pid target to current count so no violent movement
+  xTaskCreate(pidfTask, "BlueMotor PID Thread", 1000, (void*) this, 1, NULL); // start the pidf task
 }
 
 void BlueMotor::setEffort(int effort) {
@@ -74,7 +71,7 @@ void BlueMotor::setEffort(int effort) {
   } else {
     digitalWrite(AIN1, LOW);
     digitalWrite(AIN2, HIGH);
-    effort = -effort;
+    effort = -effort; // make effort positive because we just set the pins to backwards
   }
   int value = constrain(effort, 0, 255);
   analogWrite(PWM, value);
