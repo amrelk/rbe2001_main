@@ -10,6 +10,7 @@ public:
   ~BlueMotor();
 
   void setEffort(int effort);
+  void setEffortWithoutDB(int effort);
   void setTarget(long count);
   void startPid();
 
@@ -23,4 +24,5 @@ public:
   float Ki = 0;
   float Kd = 0;
   std::function<float (long)> Ff = [] (long count) { return 0.0; };
+  bool printing = false;
 };

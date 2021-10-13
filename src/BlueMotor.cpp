@@ -1,7 +1,7 @@
 #include "BlueMotor.h"
 #include <RBE1001Lib.h>
 
-#define PIDINT 100 //TODO: reduce pid interval
+#define PIDINT 10 // pid interval
 #define PWM 13 // motor driver pins
 #define AIN2 14
 #define AIN1 15
@@ -28,19 +28,33 @@ void IRAM_ATTR encoderIsr() {
 void pidfTask(void* params) {
   BlueMotor* motor = (BlueMotor*) params; // we passed a pointer to `this` into the task so that we can get count and apply effort
   TickType_t xLastWakeTime = xTaskGetTickCount(); // initialize wake time variable
-  long lastErr, count = motor->getCount(); // more initialization
-  float effort = 0;
+  long lastErr, totalErr=0, count = motor->getCount(), mod=0; // more initialization
+  float effort = 0, lastDeg, deg=0;
   float P, I, D, F;
   for(;;) { // loop forever - delay happens later
+    lastDeg = deg;
     lastErr = err;
     count = motor->getCount();
     err = pidTarget - count;
+    totalErr += err * PIDINT;
+    deg = motor->getPosition();
     P = motor->Kp * err;
-    I = 0; // I term is 0 because it seems unnecessary so far
+    I = motor->Ki * totalErr;
     D = (motor->Kd * (err - lastErr))/PIDINT;
     F = motor->Ff(count); //feedforward!! we probably won't use this
     effort = constrain(P + I - D + F, -255, 255); // constrain the pidf result to [-255, 255]
-    motor->setEffort((int)effort); // send constrained pidf result to the motor
+    motor->setEffortWithoutDB((int)effort); // send constrained pidf result to the motor
+    if(!(++mod % 10) && motor->printing) {
+      Serial.print(count); Serial.print(" ");
+      Serial.print(pidTarget); Serial.print(" ");
+      Serial.print((int)effort); Serial.print(" ");
+      Serial.print((int)(((151.0 / 255) * effort) + (effort>0?104:-104))); Serial.print(" ");
+      Serial.print((deg-lastDeg)/PIDINT); Serial.print(" ");
+      Serial.print(millis()); Serial.print(" ");
+      Serial.print(motor->Kp); Serial.print(" ");
+      Serial.print(motor->Ki); Serial.print(" ");
+      Serial.println(motor->Kd);
+    }
     vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(PIDINT)); // delay for PIDINT
   }
 }
@@ -75,6 +89,10 @@ void BlueMotor::setEffort(int effort) {
   }
   int value = constrain(effort, 0, 255);
   analogWrite(PWM, value);
+}
+
+void BlueMotor::setEffortWithoutDB(int effort) {
+  this->setEffort((int)(((151.0 / 255) * effort) + (effort>0?104:-104)));
 }
 
 void BlueMotor::setTarget(long count) {
