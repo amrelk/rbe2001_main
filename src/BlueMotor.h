@@ -13,7 +13,6 @@ public:
   void setTarget(long count);
   void startPid();
 
-
   float getPosition();
   long getCount();
   long getErr();
