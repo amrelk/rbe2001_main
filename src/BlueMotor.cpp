@@ -1,12 +1,12 @@
 #include "BlueMotor.h"
 #include <RBE1001Lib.h>
 
-#define PIDINT 10 // pid interval
-#define PWM 13 // motor driver pins
-#define AIN2 14
-#define AIN1 15
-#define ENCA 18
-#define ENCB 19
+#define PIDINT 10 // pid interval //free
+#define PWM 21 // motor driver pins ///TAKEN
+#define AIN2 23 ///TAKEN
+#define AIN1 22 ///TAKEN
+#define ENCA 18 //free
+#define ENCB 19 //free
 
 long enCount = 0;
 long pidTarget = 0;
